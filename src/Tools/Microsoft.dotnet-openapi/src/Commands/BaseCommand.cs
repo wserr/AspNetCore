@@ -245,7 +245,7 @@ namespace Microsoft.DotNet.OpenApi.Commands
                 await Out.WriteAsync(output);
                 await Error.WriteAsync(error);
 
-                throw new ArgumentException($"Could not add package `{packageId}` to `{projectFile.Directory}` due to: `{error}`");
+                throw new ArgumentException($"Adding package `{packageId}` to `{projectFile.Directory}` returned ExitCode `{process.ExitCode}` and gave the following error: `{error}`");
             }
         }
 

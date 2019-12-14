@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
+using System.Threading;
 
 // This is under the NodeServices namespace because post 2.1 it will be moved to that package
 namespace Microsoft.AspNetCore.NodeServices.Npm
@@ -18,12 +19,13 @@ namespace Microsoft.AspNetCore.NodeServices.Npm
     /// </summary>
     internal class NodeScriptRunner
     {
+        private Process _npmProcess;
         public EventedStreamReader StdOut { get; }
         public EventedStreamReader StdErr { get; }
 
         private static Regex AnsiColorRegex = new Regex("\x001b\\[[0-9;]*m", RegexOptions.None, TimeSpan.FromSeconds(1));
 
-        public NodeScriptRunner(string workingDirectory, string scriptName, string arguments, IDictionary<string, string> envVars, string pkgManagerCommand)
+        public NodeScriptRunner(string workingDirectory, string scriptName, string arguments, IDictionary<string, string> envVars, string pkgManagerCommand, CancellationToken applicationStoppingToken)
         {
             if (string.IsNullOrEmpty(workingDirectory))
             {
@@ -69,9 +71,11 @@ namespace Microsoft.AspNetCore.NodeServices.Npm
                 }
             }
 
-            var process = LaunchNodeProcess(processStartInfo, pkgManagerCommand);
-            StdOut = new EventedStreamReader(process.StandardOutput);
-            StdErr = new EventedStreamReader(process.StandardError);
+            _npmProcess = LaunchNodeProcess(processStartInfo, pkgManagerCommand);
+            StdOut = new EventedStreamReader(_npmProcess.StandardOutput);
+            StdErr = new EventedStreamReader(_npmProcess.StandardError);
+
+            applicationStoppingToken.Register(EnsureNpmIsDead);
         }
 
         public void AttachToLogger(ILogger logger)
@@ -130,6 +134,15 @@ namespace Microsoft.AspNetCore.NodeServices.Npm
                             + "    Make sure the executable is in one of those directories, or update your PATH.\n\n"
                             + "[2] See the InnerException for further details of the cause.";
                 throw new InvalidOperationException(message, ex);
+            }
+        }
+
+        private void EnsureNpmIsDead()
+        {
+            if (_npmProcess != null && !_npmProcess.HasExited)
+            {
+                _npmProcess.Kill(entireProcessTree: true);
+                _npmProcess = null;
             }
         }
     }

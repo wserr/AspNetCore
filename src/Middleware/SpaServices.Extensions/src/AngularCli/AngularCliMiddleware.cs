@@ -13,6 +13,8 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Net.Http;
 using Microsoft.AspNetCore.SpaServices.Extensions.Util;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.AspNetCore.SpaServices.AngularCli
 {
@@ -40,8 +42,9 @@ namespace Microsoft.AspNetCore.SpaServices.AngularCli
 
             // Start Angular CLI and attach to middleware pipeline
             var appBuilder = spaBuilder.ApplicationBuilder;
+            var applicationStoppingToken = appBuilder.ApplicationServices.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
             var logger = LoggerFinder.GetOrCreateLogger(appBuilder, LogCategoryName);
-            var angularCliServerInfoTask = StartAngularCliServerAsync(sourcePath, scriptName, pkgManagerCommand, devServerPort, logger);
+            var angularCliServerInfoTask = StartAngularCliServerAsync(sourcePath, scriptName, pkgManagerCommand, devServerPort, logger, applicationStoppingToken);
 
             // Everything we proxy is hardcoded to target http://localhost because:
             // - the requests are always from the local machine (we're not accepting remote
@@ -64,7 +67,7 @@ namespace Microsoft.AspNetCore.SpaServices.AngularCli
         }
 
         private static async Task<AngularCliServerInfo> StartAngularCliServerAsync(
-            string sourcePath, string scriptName, string pkgManagerCommand, int portNumber, ILogger logger)
+            string sourcePath, string scriptName, string pkgManagerCommand, int portNumber, ILogger logger, CancellationToken applicationStoppingToken)
         {
             if (portNumber == default(int))
             {
@@ -73,7 +76,7 @@ namespace Microsoft.AspNetCore.SpaServices.AngularCli
             logger.LogInformation($"Starting @angular/cli on port {portNumber}...");
 
             var scriptRunner = new NodeScriptRunner(
-                sourcePath, scriptName, $"--port {portNumber}", null, pkgManagerCommand);
+                sourcePath, scriptName, $"--port {portNumber}", null, pkgManagerCommand, applicationStoppingToken);
             scriptRunner.AttachToLogger(logger);
 
             Match openBrowserLine;

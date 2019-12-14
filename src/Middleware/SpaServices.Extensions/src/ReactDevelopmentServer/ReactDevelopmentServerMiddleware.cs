@@ -12,6 +12,9 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SpaServices.Extensions.Util;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using System.Threading;
 
 namespace Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer
 {
@@ -39,8 +42,9 @@ namespace Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer
 
             // Start create-react-app and attach to middleware pipeline
             var appBuilder = spaBuilder.ApplicationBuilder;
+            var applicationStoppingToken = appBuilder.ApplicationServices.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
             var logger = LoggerFinder.GetOrCreateLogger(appBuilder, LogCategoryName);
-            var portTask = StartCreateReactAppServerAsync(sourcePath, scriptName, pkgManagerCommand, devServerPort, logger);
+            var portTask = StartCreateReactAppServerAsync(sourcePath, scriptName, pkgManagerCommand, devServerPort, logger, applicationStoppingToken);
 
             // Everything we proxy is hardcoded to target http://localhost because:
             // - the requests are always from the local machine (we're not accepting remote
@@ -63,7 +67,7 @@ namespace Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer
         }
 
         private static async Task<int> StartCreateReactAppServerAsync(
-            string sourcePath, string scriptName, string pkgManagerCommand, int portNumber, ILogger logger)
+            string sourcePath, string scriptName, string pkgManagerCommand, int portNumber, ILogger logger, CancellationToken applicationStoppingToken)
         {
             if (portNumber == default(int))
             {
@@ -77,7 +81,7 @@ namespace Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer
                 { "BROWSER", "none" }, // We don't want create-react-app to open its own extra browser window pointing to the internal dev server port
             };
             var scriptRunner = new NodeScriptRunner(
-                sourcePath, scriptName, null, envVars, pkgManagerCommand);
+                sourcePath, scriptName, null, envVars, pkgManagerCommand, applicationStoppingToken);
             scriptRunner.AttachToLogger(logger);
 
             using (var stdErrReader = new EventedStreamStringReader(scriptRunner.StdErr))

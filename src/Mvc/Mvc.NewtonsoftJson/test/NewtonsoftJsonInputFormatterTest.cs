@@ -247,6 +247,40 @@ namespace Microsoft.AspNetCore.Mvc.Formatters
             var modelError = formatterContext.ModelState[modelStateKey].Errors.Single();
             Assert.Equal(expectedMessage, modelError.ErrorMessage);
         }
+        
+        [Fact]
+        public async Task ReadAsync_DeserializeErrorHandling()
+        {
+            // Arrange
+            var content = 
+                @"['2009-09-09T00:00:00Z',
+                '2000-12-01T00:00:00Z', 'this is NOT a datetime']";
+            
+            var serializerSettings = new JsonSerializerSettings()
+            {
+                NullValueHandling = NullValueHandling.Ignore,
+                Error = (sender, args) =>
+                {
+                    args.ErrorContext.Handled = true;
+                },
+                Converters = { new IsoDateTimeConverter() }
+            };
+            
+            var formatter = CreateFormatter(serializerSettings, ignoreDeserializationErrors: true);
+            
+            var contentBytes = Encoding.UTF8.GetBytes(content);
+            var httpContext = GetHttpContext(contentBytes);
+
+            var formatterContext = CreateInputFormatterContext(typeof(List<DateTime>), httpContext);
+            
+            
+            // Act
+            var result = await formatter.ReadAsync(formatterContext);
+            
+            
+            // Assert
+            Assert.NotNull(result.Model);
+        }
 
         [Fact]
         public async Task ReadAsync_AllowMultipleErrors()
@@ -398,7 +432,7 @@ namespace Microsoft.AspNetCore.Mvc.Formatters
             Assert.Null(modelError.Exception);
             Assert.Equal("The supplied value is invalid.", modelError.ErrorMessage);
         }
-
+        
         private class TestableJsonInputFormatter : NewtonsoftJsonInputFormatter
         {
             public TestableJsonInputFormatter(JsonSerializerSettings settings, ObjectPoolProvider objectPoolProvider)
@@ -419,7 +453,7 @@ namespace Microsoft.AspNetCore.Mvc.Formatters
         protected override TextInputFormatter GetInputFormatter()
             => CreateFormatter(allowInputFormatterExceptionMessages: true);
 
-        private NewtonsoftJsonInputFormatter CreateFormatter(JsonSerializerSettings serializerSettings = null, bool allowInputFormatterExceptionMessages = false)
+        private NewtonsoftJsonInputFormatter CreateFormatter(JsonSerializerSettings serializerSettings = null,   bool allowInputFormatterExceptionMessages = false, bool ignoreDeserializationErrors = false)
         {
             return new NewtonsoftJsonInputFormatter(
                 GetLogger(),
@@ -430,6 +464,7 @@ namespace Microsoft.AspNetCore.Mvc.Formatters
                 new MvcNewtonsoftJsonOptions()
                 {
                     AllowInputFormatterExceptionMessages = allowInputFormatterExceptionMessages,
+                    IgnoreDeserializationErrors =  ignoreDeserializationErrors
                 });
         }
 

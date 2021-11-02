@@ -35,6 +35,11 @@ namespace Microsoft.AspNetCore.Mvc
         public bool AllowInputFormatterExceptionMessages { get; set; } = true;
 
         /// <summary>
+        /// When this is set to true, the model will still be returned, even when some properties failed to deserialize
+        /// </summary>
+        public bool IgnoreDeserializationErrors { get; set; } = false;
+
+        /// <summary>
         /// Gets the <see cref="JsonSerializerSettings"/> that are used by this application.
         /// </summary>
         public JsonSerializerSettings SerializerSettings { get; } = JsonSerializerSettingsProvider.CreateSerializerSettings();

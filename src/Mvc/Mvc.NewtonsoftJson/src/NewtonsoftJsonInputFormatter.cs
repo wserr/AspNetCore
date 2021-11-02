@@ -218,6 +218,12 @@ namespace Microsoft.AspNetCore.Mvc.Formatters
                 var exceptionDispatchInfo = ExceptionDispatchInfo.Capture(exception);
                 exceptionDispatchInfo.Throw();
             }
+            else if (_jsonOptions.IgnoreDeserializationErrors)
+            {
+                // In case JsonException, Overflow Exception or FormatException occur,
+                // still return the model if the IgnoreDeserializationErrors parameter is set to true
+                return InputFormatterResult.Success(model);
+            }
 
             return InputFormatterResult.Failure();
 
